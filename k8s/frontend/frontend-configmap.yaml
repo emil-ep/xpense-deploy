@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xpense-frontend-config
+  namespace: xpense
+data:
+  REACT_APP_API_BASE_URL: "http://xpense-tracker-backend:8085"
