@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: xpense-ingress
+  namespace: xpense
+spec:
+  rules:
+    - host: xpense.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: xpense-tracker-frontend
+                port:
+                  number: 3000

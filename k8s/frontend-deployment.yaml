@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xpense-tracker-frontend
+  namespace: xpense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: xpense-tracker-frontend
+  template:
+    metadata:
+      labels:
+        app: xpense-tracker-frontend
+    spec:
+      containers:
+        - name: xpense-tracker-frontend
+          image: ghcr.io/emil-ep/xpense-frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: REACT_APP_BACKEND_URL
+              value: http://xpense-tracker-backend:8085
