@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xpense-backend-config
+  namespace: xpense
+data:
+  TRACKER_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/xpense_tracker"
+  MF_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/mf"

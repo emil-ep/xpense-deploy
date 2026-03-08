@@ -18,10 +18,6 @@ spec:
           image: postgres:16
           ports:
             - containerPort: 5432
-          env:
-            - name: POSTGRES_DB
-              value: xpense_tracker
-            - name: POSTGRES_USER
-              value: xpense_admin
-            - name: POSTGRES_PASSWORD
-              value: xpenseTracker1234
+          envFrom:
+            - secretRef:
+                name: postgres-secret

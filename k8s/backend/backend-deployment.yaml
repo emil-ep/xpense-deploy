@@ -19,9 +19,11 @@ spec:
           ports:
             - containerPort: 8085
           env:
-            - name: SPRING_DATASOURCE_URL
-              value: jdbc:postgresql://xpense-db:5432/xpense_tracker
-            - name: SPRING_DATASOURCE_USERNAME
-              value: xpense_admin
-            - name: SPRING_DATASOURCE_PASSWORD
-              value: xpenseTracker1234
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+
+          envFrom:
+            - configMapRef:
+                name: xpense-backend-config
+            - secretRef:
+                name: xpense-backend-secret
