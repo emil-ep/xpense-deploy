@@ -18,6 +18,11 @@ spec:
           image: ghcr.io/emil-ep/xpense-ui:latest
           ports:
             - containerPort: 80
-          env:
-            - name: REACT_APP_BACKEND_URL
-              value: http://xpense-tracker-backend:8085
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: frontend-nginx-config

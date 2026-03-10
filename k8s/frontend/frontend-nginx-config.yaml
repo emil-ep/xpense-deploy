@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-config
+  namespace: xpense
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+
+        # Fix for io_setup() failed (38: Function not implemented)
+        aio off;
+        directio off;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Proxy API requests to backend service
+        location /v1/ {
+            proxy_pass http://xpense-tracker-backend:8085;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location / {
+            # Critical for React Router: Redirects 404s to index.html
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Optional: Cache static assets
+        location /static/ {
+            expires 1y;
+            add_header Cache-Control "public, no-transform";
+        }
+
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root /usr/share/nginx/html;
+        }
+    }
+
+# Made with Bob
