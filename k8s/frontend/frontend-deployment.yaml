@@ -17,7 +17,7 @@ spec:
         - name: xpense-tracker-frontend
           image: ghcr.io/emil-ep/xpense-ui:latest
           ports:
-            - containerPort: 3000
+            - containerPort: 80
           env:
             - name: REACT_APP_BACKEND_URL
               value: http://xpense-tracker-backend:8085
