@@ -1,7 +1,6 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Namespace
 metadata:
-  name: xpense-tracker
-  namespace: xpense
-spec:
-  replicas: 2
+  name: xpense
+
+# Made with Bob
