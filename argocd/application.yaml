@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/emil-ep/xpense-tracker-deploy
-    targetRevision: main
+    targetRevision: master
     path: k8s
   destination:
     server: https://kubernetes.default.svc
