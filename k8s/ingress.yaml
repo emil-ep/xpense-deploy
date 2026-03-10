@@ -8,6 +8,13 @@ spec:
     - host: xpense.local
       http:
         paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: xpense-tracker-backend
+                port:
+                  number: 8085
           - path: /
             pathType: Prefix
             backend:
