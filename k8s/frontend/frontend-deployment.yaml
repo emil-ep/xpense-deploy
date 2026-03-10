@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: xpense-tracker-frontend
-          image: ghcr.io/emil-ep/xpense-frontend:latest
+          image: ghcr.io/emil-ep/xpense-ui:latest
           ports:
             - containerPort: 3000
           env:
