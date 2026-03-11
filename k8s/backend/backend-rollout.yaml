@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/emil-ep/xpense-backend:1.0.12
+          image: ghcr.io/emil-ep/xpense-backend:1.0.13
           imagePullPolicy: Always
 
           ports:
