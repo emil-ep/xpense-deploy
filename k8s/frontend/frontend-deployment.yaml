@@ -4,7 +4,7 @@ metadata:
   name: xpense-tracker-frontend
   namespace: xpense
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: xpense-tracker-frontend

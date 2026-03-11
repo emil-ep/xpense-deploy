@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: xpense-tracker-backend
+  namespace: xpense
+  labels:
+    app: xpense-tracker-backend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  
+  selector:
+    matchLabels:
+      app: xpense-tracker-backend
+
+  template:
+    metadata:
+      labels:
+        app: xpense-tracker-backend
+
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/emil-ep/xpense-backend:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 8085
+
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+
+          envFrom:
+            - configMapRef:
+                name: xpense-backend-config
+            - secretRef:
+                name: xpense-backend-secret
+
+  strategy:
+    blueGreen:
+      activeService: xpense-tracker-backend-active
+      previewService: xpense-tracker-backend-preview
+      autoPromotionEnabled: false
+      scaleDownDelaySeconds: 30
+
