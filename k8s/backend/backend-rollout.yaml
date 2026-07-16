@@ -44,3 +44,28 @@ spec:
       autoPromotionEnabled: false
       scaleDownDelaySeconds: 30
 
+      # ── Pre-promotion gate ─────────────────────────────────────────────────
+      # Runs after green pods are Ready and the preview service is live, but
+      # BEFORE the active service is switched.  Argo blocks promotion until
+      # all metrics pass.  Failure leaves blue still active — users unaffected.
+      prePromotionAnalysis:
+        templates:
+          - templateName: instana-bluegreen-health
+        args:
+          # "Latest" resolves to the green ReplicaSet's rollouts-pod-template-hash,
+          # scoping the Instana query to green pods only.
+          - name: pod-template-hash
+            valueFrom:
+              podTemplateHashValue: Latest
+
+      # ── Post-promotion gate ────────────────────────────────────────────────
+      # Runs after the active service switches to green, BEFORE blue is scaled
+      # down.  If this fails, Argo reverts the active service back to blue.
+      postPromotionAnalysis:
+        templates:
+          - templateName: instana-bluegreen-health
+        args:
+          # After promotion "Latest" is still the green (now-active) ReplicaSet.
+          - name: pod-template-hash
+            valueFrom:
+              podTemplateHashValue: Latest

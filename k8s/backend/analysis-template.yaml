@@ -1,0 +1,98 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: instana-bluegreen-health
+  namespace: xpense
+spec:
+  args:
+    # Instana tenant base URL — read from the instana-credentials secret so it
+    # is never hardcoded here (create the secret before deploying this template):
+    #   kubectl create secret generic instana-credentials \
+    #     --from-literal=host=https://<tenant>.instana.io \
+    #     --from-literal=clusterName=<cluster-name> \
+    #     -n xpense
+    - name: instana-host
+      valueFrom:
+        secretKeyRef:
+          name: instana-credentials
+          key: host
+    # Kubernetes cluster name — scopes the Instana query so a pod-template-hash
+    # collision on another cluster cannot pollute this gate.
+    - name: cluster-name
+      valueFrom:
+        secretKeyRef:
+          name: instana-credentials
+          key: clusterName
+    # Injected automatically by Argo Rollouts from the rollouts-pod-template-hash
+    # label on the green (preview) ReplicaSet.  In blue-green, "Latest" refers to
+    # the green ReplicaSet — the one about to be promoted.
+    # Provided via prePromotionAnalysis.args / postPromotionAnalysis.args in the
+    # Rollout spec (see backend-rollout.yaml).
+    - name: pod-template-hash
+
+  metrics:
+    # ── Error rate ────────────────────────────────────────────────────────────
+    # Instana reports `errors` as a ratio (0..1); 0.05 == 5 %.
+    - name: error-rate
+      interval: 1m
+      count: 3
+      successCondition: result <= 0.05
+      failureLimit: 2
+      provider:
+        plugin:
+          instana/metrics:
+            host: "{{args.instana-host}}"
+            # INSTANA_API_TOKEN must be set as an env var on the argo-rollouts
+            # controller Deployment (injected from the instana-api-token Secret
+            # in the argo-rollouts namespace).
+            apiTokenEnv: INSTANA_API_TOKEN
+            metric: errors
+            aggregation: MEAN
+            granularity: 60
+            # Look back 5 minutes per measurement window.
+            timeWindowMs: 300000
+            clusterName: "{{args.cluster-name}}"
+            # Scope to this namespace so a same-hash workload in another
+            # namespace cannot blend into the gate.
+            namespace: xpense
+            groupByTag: kubernetes.pod.label
+            groupByTagKey: rollouts-pod-template-hash
+            groupByTagEntity: DESTINATION
+            # Isolate the green (preview) ReplicaSet when both blue and green
+            # pods are running simultaneously during the promotion window.
+            selectGroup: "{{args.pod-template-hash}}"
+            tagFilters:
+              - name: kubernetes.pod.label
+                key: rollouts-pod-template-hash
+                operator: EQUALS
+                entity: DESTINATION
+                value: "{{args.pod-template-hash}}"
+
+    # ── Latency p90 ───────────────────────────────────────────────────────────
+    # Instana returns latency in milliseconds.
+    - name: latency-p90
+      interval: 1m
+      count: 3
+      successCondition: result <= 1000
+      failureLimit: 2
+      provider:
+        plugin:
+          instana/metrics:
+            host: "{{args.instana-host}}"
+            apiTokenEnv: INSTANA_API_TOKEN
+            metric: latency
+            aggregation: P90
+            granularity: 60
+            timeWindowMs: 300000
+            clusterName: "{{args.cluster-name}}"
+            namespace: xpense
+            groupByTag: kubernetes.pod.label
+            groupByTagKey: rollouts-pod-template-hash
+            groupByTagEntity: DESTINATION
+            selectGroup: "{{args.pod-template-hash}}"
+            tagFilters:
+              - name: kubernetes.pod.label
+                key: rollouts-pod-template-hash
+                operator: EQUALS
+                entity: DESTINATION
+                value: "{{args.pod-template-hash}}"
