@@ -67,7 +67,7 @@ curl http://localhost:8085/actuator/health
 2. **ArgoCD syncs** the change and Rollout creates new pods
 3. **Test preview** version using the preview service
 4. **Promote** if tests pass: `kubectl argo rollouts promote xpense-tracker-backend -n xpense`
-5. **Active service** automatically switches to the new version
+5. **Post-promotion analysis** checks Instana metrics after traffic moves to green
 6. **Old version** is scaled down after 30 seconds (scaleDownDelaySeconds)
 
 ## Configuration
@@ -81,5 +81,6 @@ curl http://localhost:8085/actuator/health
 
 - The frontend nginx config points to `xpense-tracker-backend-active` service
 - Always test the preview version before promoting
+- Post-promotion Instana analysis runs only after traffic switches to the new version
 - Auto-promotion is disabled for safety - requires manual approval
 - The old deployment file (`backend-deployment.yaml`) should be deleted or renamed to avoid conflicts
