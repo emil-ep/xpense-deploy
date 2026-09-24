@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xpense-scheduler
+  namespace: xpense
+  labels:
+    app: xpense-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: xpense-scheduler
+  template:
+    metadata:
+      labels:
+        app: xpense-scheduler
+    spec:
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z kafka 9092; do echo "waiting for kafka..."; sleep 3; done']
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z postgres 5432; do echo "waiting for postgres..."; sleep 3; done']
+      containers:
+        - name: xpense-scheduler
+          image: ghcr.io/emil-ep/xpense-scheduler:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8086
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+          envFrom:
+            - configMapRef:
+                name: xpense-scheduler-config
+            - secretRef:
+                name: xpense-scheduler-secret
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8086
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8086
+            initialDelaySeconds: 60
+            periodSeconds: 15
