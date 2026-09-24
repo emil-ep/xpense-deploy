@@ -11,6 +11,7 @@ spec:
     path: k8s
     directory:
       recurse: true
+      exclude: '{**/*-secret.yaml,**/postgres-secret.yaml}'
   destination:
     server: https://kubernetes.default.svc
     namespace: xpense

@@ -196,10 +196,21 @@ reverts the active service back to the blue ReplicaSet.
 ## Known pitfalls
 
 ### PostgreSQL fails to start — `POSTGRES_PASSWORD` empty
-ArgoCD must **not** overwrite the `postgres-secret`. All secret stubs in `k8s/`
-carry `argocd.argoproj.io/sync-options: Skip` for this reason. If this
-annotation is ever removed or changed to `Prune=false`, ArgoCD will reset
-`data: {}` on every sync and Postgres will refuse to start.
+Two defences are in place — both are required:
+
+1. **ArgoCD excludes all secret files** — `argocd/application.yaml` has
+   `directory.exclude: '{**/*-secret.yaml,**/postgres-secret.yaml}'` so ArgoCD
+   never applies any secret manifest, not even on the very first sync.
+   The `sync-options: Skip` annotation on the stub files is a belt-and-braces
+   backup, but the `exclude` is the primary guard.
+
+2. **`install.sh` uses `replace`, not `apply`** — all secrets are written with
+   `kubectl replace` (falling back to `kubectl create` on first install). This
+   guarantees a full overwrite and prevents `kubectl apply`'s strategic merge
+   from silently dropping keys when the resource already exists with `data: {}`.
+
+If either defence is removed, ArgoCD can write `data: {}` to the secret and
+Postgres will refuse to start.
 
 ### Kafka fails — `cluster.id mismatch`
 Kafka stores cluster metadata on the PVC. If the pod restarts with a different

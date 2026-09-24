@@ -124,20 +124,31 @@ fi
 echo ""
 
 # ── Step 3: Create application secrets ───────────────────────────────────────
+# Use `kubectl create ... | kubectl replace -f -` (not apply) so that the full
+# secret is always written regardless of what is currently on the cluster.
+# `kubectl apply` does a strategic merge and can silently lose keys if the
+# resource already exists with data:{} (e.g. written by a prior ArgoCD sync).
 echo -e "${GREEN}Step 3: Creating Application Secrets${NC}"
 echo "-------------------------------------"
 echo ""
 
+apply_secret() {
+    # $@ — all arguments forwarded to `kubectl create secret generic`
+    # Tries replace first (resource exists); falls back to create (fresh install).
+    kubectl create secret generic "$@" --dry-run=client -o yaml \
+        | kubectl replace -f - 2>/dev/null \
+        || kubectl create secret generic "$@"
+}
+
 echo "Creating PostgreSQL secret..."
-kubectl create secret generic postgres-secret \
+apply_secret postgres-secret \
   -n xpense \
   --from-literal=POSTGRES_USER="xpense_admin" \
   --from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
-  --from-literal=POSTGRES_DB="xpense_tracker" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=POSTGRES_DB="xpense_tracker"
 
 echo "Creating backend secret..."
-kubectl create secret generic xpense-backend-secret \
+apply_secret xpense-backend-secret \
   -n xpense \
   --from-literal=TRACKER_DATASOURCE_USERNAME="xpense_admin" \
   --from-literal=TRACKER_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
@@ -145,26 +156,23 @@ kubectl create secret generic xpense-backend-secret \
   --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
   --from-literal=INTERNAL_SERVICE_USERNAME="${INTERNAL_USERNAME}" \
   --from-literal=INTERNAL_SERVICE_PASSWORD="${INTERNAL_PASSWORD}" \
-  --from-literal=TOKEN_SIGNING_KEY="${JWT_SIGNING_KEY}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=TOKEN_SIGNING_KEY="${JWT_SIGNING_KEY}"
 
 echo "Creating scheduler secret..."
-kubectl create secret generic xpense-scheduler-secret \
+apply_secret xpense-scheduler-secret \
   -n xpense \
   --from-literal=TRACKER_DATASOURCE_USERNAME="xpense_admin" \
   --from-literal=TRACKER_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
   --from-literal=MF_DATASOURCE_USERNAME="xpense_admin" \
   --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
   --from-literal=TRACKER_SERVICE_USERNAME="${INTERNAL_USERNAME}" \
-  --from-literal=TRACKER_SERVICE_PASSWORD="${INTERNAL_PASSWORD}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=TRACKER_SERVICE_PASSWORD="${INTERNAL_PASSWORD}"
 
 echo "Creating consumer secret..."
-kubectl create secret generic xpense-consumer-secret \
+apply_secret xpense-consumer-secret \
   -n xpense \
   --from-literal=MF_DATASOURCE_USERNAME="xpense_admin" \
-  --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}"
 
 # Verify the Postgres secret was written correctly before going further.
 # An empty POSTGRES_PASSWORD causes the container to refuse to start.
@@ -188,20 +196,18 @@ echo ""
 # instana-credentials — used by the AnalysisTemplate in the xpense namespace
 # to supply the tenant host and cluster name to the Instana metrics provider.
 echo "Creating instana-credentials secret (xpense namespace)..."
-kubectl create secret generic instana-credentials \
+apply_secret instana-credentials \
   -n xpense \
   --from-literal=host="${INSTANA_HOST}" \
-  --from-literal=clusterName="${INSTANA_CLUSTER_NAME}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=clusterName="${INSTANA_CLUSTER_NAME}"
 
 # instana-api-token — injected as INSTANA_API_TOKEN env var into the
 # argo-rollouts controller so the Instana metrics provider plugin can
 # authenticate to the Instana REST API during promotion analysis.
 echo "Creating instana-api-token secret (argo-rollouts namespace)..."
-kubectl create secret generic instana-api-token \
+apply_secret instana-api-token \
   -n argo-rollouts \
-  --from-literal=INSTANA_API_TOKEN="${INSTANA_API_TOKEN}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=INSTANA_API_TOKEN="${INSTANA_API_TOKEN}"
 
 echo "Patching argo-rollouts controller to inject INSTANA_API_TOKEN..."
 kubectl patch deployment argo-rollouts \
