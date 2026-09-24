@@ -42,9 +42,11 @@ spec:
               port: 8086
             initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8086
             initialDelaySeconds: 60
             periodSeconds: 15
+            failureThreshold: 5
