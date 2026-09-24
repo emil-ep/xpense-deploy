@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xpense-consumer
+  namespace: xpense
+  labels:
+    app: xpense-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: xpense-consumer
+  template:
+    metadata:
+      labels:
+        app: xpense-consumer
+    spec:
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z kafka 9092; do echo "waiting for kafka..."; sleep 3; done']
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z postgres 5432; do echo "waiting for postgres..."; sleep 3; done']
+      containers:
+        - name: xpense-consumer
+          image: ghcr.io/emil-ep/xpense-consumer:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8089
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+          envFrom:
+            - configMapRef:
+                name: xpense-consumer-config
+            - secretRef:
+                name: xpense-consumer-secret
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8089
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8089
+            initialDelaySeconds: 60
+            periodSeconds: 15
