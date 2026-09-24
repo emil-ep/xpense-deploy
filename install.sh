@@ -147,43 +147,90 @@ if [ "$INSTALL_OPTION" = "1" ] || [ "$INSTALL_OPTION" = "4" ]; then
     echo -e "${GREEN}Step 3: Configuring Application Secrets${NC}"
     echo "--------------------------------------"
     echo ""
-    
-    # Prompt for PostgreSQL password
-    read -sp "Enter PostgreSQL password: " POSTGRES_PASSWORD
+
+    # ── PostgreSQL password ───────────────────────────────────────────────
+    read -sp "Enter PostgreSQL password (for xpense_admin): " POSTGRES_PASSWORD
     echo ""
     read -sp "Confirm PostgreSQL password: " POSTGRES_PASSWORD_CONFIRM
     echo ""
-    
+
     if [ "$POSTGRES_PASSWORD" != "$POSTGRES_PASSWORD_CONFIRM" ]; then
         echo -e "${RED}Error: Passwords do not match${NC}"
         exit 1
     fi
-    
+
     if [ -z "$POSTGRES_PASSWORD" ]; then
         echo -e "${RED}Error: Password cannot be empty${NC}"
         exit 1
     fi
-    
+
+    # ── JWT signing key ───────────────────────────────────────────────────
     echo ""
-    
+    read -sp "Enter JWT signing key (base64-encoded, min 32 bytes): " JWT_SIGNING_KEY
+    echo ""
+
+    if [ -z "$JWT_SIGNING_KEY" ]; then
+        echo -e "${YELLOW}No JWT key provided — generating a random one...${NC}"
+        JWT_SIGNING_KEY=$(openssl rand -hex 32 | tr -d '\n' | base64 | tr -d '\n')
+        echo -e "${YELLOW}Generated JWT key (save this — needed if you redeploy): ${JWT_SIGNING_KEY}${NC}"
+    fi
+
+    # ── Internal service credentials ─────────────────────────────────────
+    echo ""
+    read -sp "Enter internal service username [service]: " INTERNAL_USERNAME
+    echo ""
+    INTERNAL_USERNAME=${INTERNAL_USERNAME:-service}
+
+    read -sp "Enter internal service password [service]: " INTERNAL_PASSWORD
+    echo ""
+    INTERNAL_PASSWORD=${INTERNAL_PASSWORD:-service}
+
+    echo ""
+
     # Step 4: Create namespace and secrets
     echo -e "${GREEN}Step 4: Creating Namespace and Secrets${NC}"
     echo "-------------------------------------"
     echo ""
-    
+
     echo "Creating xpense namespace..."
     kubectl apply -f k8s/namespace.yaml
-    
+
+    echo "Creating PostgreSQL secret..."
+    kubectl create secret generic postgres-secret \
+      -n xpense \
+      --from-literal=POSTGRES_USER="xpense_admin" \
+      --from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
+      --from-literal=POSTGRES_DB="xpense_tracker" \
+      --dry-run=client -o yaml | kubectl apply -f -
+
     echo "Creating backend secret..."
     kubectl create secret generic xpense-backend-secret \
       -n xpense \
-      --from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
+      --from-literal=TRACKER_DATASOURCE_USERNAME="xpense_admin" \
+      --from-literal=TRACKER_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
+      --from-literal=MF_DATASOURCE_USERNAME="xpense_admin" \
+      --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
+      --from-literal=INTERNAL_SERVICE_USERNAME="${INTERNAL_USERNAME}" \
+      --from-literal=INTERNAL_SERVICE_PASSWORD="${INTERNAL_PASSWORD}" \
+      --from-literal=TOKEN_SIGNING_KEY="${JWT_SIGNING_KEY}" \
       --dry-run=client -o yaml | kubectl apply -f -
-    
-    echo "Creating PostgreSQL secret..."
-    kubectl create secret generic xpense-postgres-secret \
+
+    echo "Creating scheduler secret..."
+    kubectl create secret generic xpense-scheduler-secret \
       -n xpense \
-      --from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
+      --from-literal=TRACKER_DATASOURCE_USERNAME="xpense_admin" \
+      --from-literal=TRACKER_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
+      --from-literal=MF_DATASOURCE_USERNAME="xpense_admin" \
+      --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
+      --from-literal=TRACKER_SERVICE_USERNAME="${INTERNAL_USERNAME}" \
+      --from-literal=TRACKER_SERVICE_PASSWORD="${INTERNAL_PASSWORD}" \
+      --dry-run=client -o yaml | kubectl apply -f -
+
+    echo "Creating consumer secret..."
+    kubectl create secret generic xpense-consumer-secret \
+      -n xpense \
+      --from-literal=MF_DATASOURCE_USERNAME="xpense_admin" \
+      --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
       --dry-run=client -o yaml | kubectl apply -f -
     
     echo ""

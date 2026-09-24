@@ -37,6 +37,15 @@ spec:
             - secretRef:
                 name: xpense-backend-secret
 
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: xpense-backend-uploads
+
   strategy:
     blueGreen:
       activeService: xpense-tracker-backend-active
