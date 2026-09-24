@@ -56,6 +56,7 @@ echo -e "${GREEN}Step 1: Configuring Application Secrets${NC}"
 echo "--------------------------------------"
 echo ""
 
+# ── PostgreSQL ────────────────────────────────────────────────────────────────
 read -sp "Enter PostgreSQL password (for xpense_admin): " POSTGRES_PASSWORD
 echo ""
 read -sp "Confirm PostgreSQL password: " POSTGRES_PASSWORD_CONFIRM
@@ -65,12 +66,12 @@ if [ "$POSTGRES_PASSWORD" != "$POSTGRES_PASSWORD_CONFIRM" ]; then
     echo -e "${RED}Error: Passwords do not match${NC}"
     exit 1
 fi
-
 if [ -z "$POSTGRES_PASSWORD" ]; then
     echo -e "${RED}Error: Password cannot be empty${NC}"
     exit 1
 fi
 
+# ── JWT signing key ───────────────────────────────────────────────────────────
 echo ""
 read -sp "Enter JWT signing key (base64-encoded, min 32 bytes) — leave blank to auto-generate: " JWT_SIGNING_KEY
 echo ""
@@ -81,6 +82,7 @@ if [ -z "$JWT_SIGNING_KEY" ]; then
     echo -e "${YELLOW}Generated JWT key (save this — needed if you redeploy): ${JWT_SIGNING_KEY}${NC}"
 fi
 
+# ── Internal service credentials ──────────────────────────────────────────────
 echo ""
 read -sp "Enter internal service username [service]: " INTERNAL_USERNAME
 echo ""
@@ -89,6 +91,16 @@ INTERNAL_USERNAME=${INTERNAL_USERNAME:-service}
 read -sp "Enter internal service password [service]: " INTERNAL_PASSWORD
 echo ""
 INTERNAL_PASSWORD=${INTERNAL_PASSWORD:-service}
+
+# ── Instana APM ───────────────────────────────────────────────────────────────
+echo ""
+echo -e "${YELLOW}Instana APM Configuration${NC}"
+echo "  Required for blue-green promotion health analysis (AnalysisTemplate)."
+echo ""
+read -sp "Enter Instana API token: " INSTANA_API_TOKEN
+echo ""
+read -p "Enter Instana tenant URL (e.g. https://mytenant.instana.io): " INSTANA_HOST
+read -p "Enter Kubernetes cluster name (as it appears in Instana): " INSTANA_CLUSTER_NAME
 
 echo ""
 
@@ -111,9 +123,9 @@ fi
 
 echo ""
 
-# ── Step 3: Create secrets ────────────────────────────────────────────────────
-echo -e "${GREEN}Step 3: Creating Secrets${NC}"
-echo "------------------------"
+# ── Step 3: Create application secrets ───────────────────────────────────────
+echo -e "${GREEN}Step 3: Creating Application Secrets${NC}"
+echo "-------------------------------------"
 echo ""
 
 echo "Creating PostgreSQL secret..."
@@ -165,11 +177,60 @@ if [ -z "$PG_PW_CHECK" ]; then
 fi
 
 echo ""
-echo -e "${GREEN}✓ Secrets created${NC}"
+echo -e "${GREEN}✓ Application secrets created${NC}"
 echo ""
 
-# ── Step 4: Deploy via ArgoCD ─────────────────────────────────────────────────
-echo -e "${GREEN}Step 4: Deploying Application via ArgoCD${NC}"
+# ── Step 4: Create Instana secrets ────────────────────────────────────────────
+echo -e "${GREEN}Step 4: Creating Instana Secrets${NC}"
+echo "--------------------------------"
+echo ""
+
+# instana-credentials — used by the AnalysisTemplate in the xpense namespace
+# to supply the tenant host and cluster name to the Instana metrics provider.
+echo "Creating instana-credentials secret (xpense namespace)..."
+kubectl create secret generic instana-credentials \
+  -n xpense \
+  --from-literal=host="${INSTANA_HOST}" \
+  --from-literal=clusterName="${INSTANA_CLUSTER_NAME}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# instana-api-token — injected as INSTANA_API_TOKEN env var into the
+# argo-rollouts controller so the Instana metrics provider plugin can
+# authenticate to the Instana REST API during promotion analysis.
+echo "Creating instana-api-token secret (argo-rollouts namespace)..."
+kubectl create secret generic instana-api-token \
+  -n argo-rollouts \
+  --from-literal=INSTANA_API_TOKEN="${INSTANA_API_TOKEN}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+echo "Patching argo-rollouts controller to inject INSTANA_API_TOKEN..."
+kubectl patch deployment argo-rollouts \
+  -n argo-rollouts \
+  --type=json \
+  -p='[{
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/env/-",
+    "value": {
+      "name": "INSTANA_API_TOKEN",
+      "valueFrom": {
+        "secretKeyRef": {
+          "name": "instana-api-token",
+          "key": "INSTANA_API_TOKEN"
+        }
+      }
+    }
+  }]' 2>/dev/null || \
+kubectl patch deployment argo-rollouts \
+  -n argo-rollouts \
+  --type=merge \
+  -p='{"spec":{"template":{"spec":{"containers":[{"name":"argo-rollouts","env":[{"name":"INSTANA_API_TOKEN","valueFrom":{"secretKeyRef":{"name":"instana-api-token","key":"INSTANA_API_TOKEN"}}}]}]}}}}'
+
+echo ""
+echo -e "${GREEN}✓ Instana secrets created${NC}"
+echo ""
+
+# ── Step 5: Deploy via ArgoCD ─────────────────────────────────────────────────
+echo -e "${GREEN}Step 5: Deploying Application via ArgoCD${NC}"
 echo "---------------------------------------"
 echo ""
 
@@ -194,8 +255,8 @@ for i in {1..60}; do
 done
 echo ""
 
-# ── Step 5: Wait for pods ─────────────────────────────────────────────────────
-echo -e "${GREEN}Step 5: Waiting for Pods to be Ready${NC}"
+# ── Step 6: Wait for pods ─────────────────────────────────────────────────────
+echo -e "${GREEN}Step 6: Waiting for Pods to be Ready${NC}"
 echo "-----------------------------------"
 echo ""
 
