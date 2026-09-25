@@ -8,3 +8,4 @@ data:
   MF_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/mf"
   KAFKA_BOOTSTRAP_SERVER: "kafka:9092"
   TRACKER_SERVICE_URL: "http://xpense-tracker-backend-active:8085"
+  LOGGING_LEVEL_ROOT: "INFO"

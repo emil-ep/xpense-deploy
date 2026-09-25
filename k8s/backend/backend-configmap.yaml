@@ -7,3 +7,4 @@ data:
   TRACKER_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/xpense_tracker"
   MF_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/mf"
   FRONTEND_URL: "http://xpense.local"
+  LOGGING_LEVEL_ROOT: "INFO"
