@@ -8,3 +8,4 @@ data:
   MF_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/mf"
   FRONTEND_URL: "http://xpense.local"
   LOGGING_LEVEL_ROOT: "INFO"
+  GOOGLE_REDIRECT_URI: "http://xpense.local/login/oauth2/code/google"
