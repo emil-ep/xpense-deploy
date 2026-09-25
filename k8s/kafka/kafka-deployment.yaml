@@ -63,6 +63,12 @@ spec:
               value: "true"
             - name: KAFKA_LOG_DIRS
               value: "/var/lib/kafka/data"
+            - name: KAFKA_JMX_PORT
+              value: "9999"
+            - name: KAFKA_JMX_HOSTNAME
+              value: "localhost"
+            - name: KAFKA_JMX_OPTS
+              value: "-Dcom.sun.jndi.rmiregistry.disableAnonBind=true -Djava.rmi.server.hostname=localhost -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999"
             # Fixed cluster ID — prevents the "cluster.id mismatch" crash when
             # the PVC already contains metadata from a previous installation.
             # Generated once with: kafka-storage.sh random-uuid
