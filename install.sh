@@ -82,6 +82,21 @@ if [ -z "$JWT_SIGNING_KEY" ]; then
     echo -e "${YELLOW}Generated JWT key (save this — needed if you redeploy): ${JWT_SIGNING_KEY}${NC}"
 fi
 
+# ── Google OAuth2 credentials ─────────────────────────────────────────────────
+echo ""
+echo -e "${YELLOW}Google OAuth2 Configuration${NC}"
+echo "  Required for Gmail integration and Google login."
+echo ""
+read -sp "Enter Google OAuth2 Client ID: " GOOGLE_CLIENT_ID
+echo ""
+read -sp "Enter Google OAuth2 Client Secret: " GOOGLE_CLIENT_SECRET
+echo ""
+
+if [ -z "$GOOGLE_CLIENT_ID" ] || [ -z "$GOOGLE_CLIENT_SECRET" ]; then
+    echo -e "${RED}Error: Google OAuth2 credentials cannot be empty${NC}"
+    exit 1
+fi
+
 # ── Internal service credentials ──────────────────────────────────────────────
 echo ""
 read -sp "Enter internal service username [service]: " INTERNAL_USERNAME
@@ -156,7 +171,9 @@ apply_secret xpense-backend-secret \
   --from-literal=MF_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD}" \
   --from-literal=INTERNAL_SERVICE_USERNAME="${INTERNAL_USERNAME}" \
   --from-literal=INTERNAL_SERVICE_PASSWORD="${INTERNAL_PASSWORD}" \
-  --from-literal=TOKEN_SIGNING_KEY="${JWT_SIGNING_KEY}"
+  --from-literal=TOKEN_SIGNING_KEY="${JWT_SIGNING_KEY}" \
+  --from-literal=GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID}" \
+  --from-literal=GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET}"
 
 echo "Creating scheduler secret..."
 apply_secret xpense-scheduler-secret \
