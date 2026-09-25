@@ -6,3 +6,4 @@ metadata:
 data:
   MF_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/mf"
   KAFKA_BOOTSTRAP_SERVER: "kafka:9092"
+  LOGGING_LEVEL_ROOT: "INFO"
